@@ -10,6 +10,9 @@
 #define PORT 12345
 #define DEFAULT_BUFLEN 512
 
+// UVESTI FLAG ZA DISKONEKCIJU 
+// Kad se unese /exit
+
 // Command types
 #define CMD_EXIT        "/exit\n"
 #define CMD_SUBSCRIBE   "[SUBSCRIBE] "
@@ -69,8 +72,6 @@ void *recv_thread(void *arg)
         perror("recv failed");
     }
     
-    free(arg); // free the dynamically allocated memory
-
     exit(0);
 }
 
@@ -90,8 +91,10 @@ void *send_thread(void *arg)
         {
             case CMD_EXIT_TYPE:
                 printf("Disconnecting...\n");
-                if(client_socket_fd != -1)
+                if(client_socket_fd != -1) {
                     close(client_socket_fd);
+                    return NULL;
+                }
                 break;
 
             case CMD_SUBSCRIBE_TYPE:
@@ -157,34 +160,21 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    // Pass the client socket as an argument to each thread
-    int *sock_ptr = malloc(sizeof(int));
-    if (!sock_ptr)
-    {
-        perror("malloc failed");
-        if(client_socket_fd != -1)
-            close(client_socket_fd);
-        return EXIT_FAILURE;
-    }
-    *sock_ptr = client_socket_fd;
-
     // Two separate threads are created to enable full-duplex TCP communication.
     pthread_t t_recv, t_send;
 
-    if (pthread_create(&t_recv, NULL, recv_thread, sock_ptr) != 0) 
+    if (pthread_create(&t_recv, NULL, recv_thread, &client_socket_fd) != 0) 
     {
         perror("pthread_create recv failed");
         if(client_socket_fd != -1)
             close(client_socket_fd);
-        free(sock_ptr);  // free the dynamically allocated memory
         return EXIT_FAILURE;
     }
-    if (pthread_create(&t_send, NULL, send_thread, sock_ptr) != 0) 
+    if (pthread_create(&t_send, NULL, send_thread, &client_socket_fd) != 0) 
     {
         perror("pthread_create send failed");
         if(client_socket_fd != -1)
             close(client_socket_fd);
-        free(sock_ptr);  // free the dynamically allocated memory
         return EXIT_FAILURE;
     }
 
@@ -194,7 +184,5 @@ int main(void)
     if(client_socket_fd != -1)
         close(client_socket_fd);
     
-    free(sock_ptr);  // free the dynamically allocated memory
-
     return 0;
 }
