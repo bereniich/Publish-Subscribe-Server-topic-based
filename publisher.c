@@ -25,7 +25,7 @@ int valid_message_format(const char *msg)
     
     if(msg[0] != '[') return 0;
 
-    int i;
+    int i = 0;
     while(msg[i] != ']' && msg[i] != '\0') ++i;
     if(msg[i] != ']') return 0;
     //empty topic: [] "text"
