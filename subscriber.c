@@ -7,11 +7,8 @@
 #include <pthread.h>
 
 #define IP_ADDRESS "127.0.0.1"
-#define PORT 12346
+#define PORT 12345
 #define DEFAULT_BUFLEN 512
-
-// UVESTI FLAG ZA DISKONEKCIJU 
-// Kad se unese /exit
 
 // Command types
 #define CMD_EXIT        "/exit\n"
@@ -72,7 +69,7 @@ void *recv_thread(void *arg)
         perror("recv failed");
     }
     
-    exit(0);
+    return NULL;
 }
 
 void *send_thread(void *arg)
@@ -95,6 +92,7 @@ void *send_thread(void *arg)
                     close(client_socket_fd);
                     return NULL;
                 }
+                
                 break;
 
             case CMD_SUBSCRIBE_TYPE:

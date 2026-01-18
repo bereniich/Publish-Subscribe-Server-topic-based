@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define PORT            12346
+#define PORT            12345
 #define DEFAULT_BUFLEN  512
 #define MAX_CLIENTS     20
 
@@ -54,6 +54,7 @@ server_cmd_t parse_server_command(char *msg, char **topics_start)
 void send_to_subscribers(TOPIC* topic, const char* msg, int sender_socket)
 {
     if (!topic) return;
+    printf("[PUBLISH] Sending message on topic '%s': %s\n", topic->name, msg);
 
     SUBSCRIBER* sub = topic->subscribers;
     while(sub)
@@ -105,6 +106,12 @@ void *handle_publisher(void *arg)
         }
         pthread_mutex_unlock(&topicRegistry_mtx);
     }
+
+    if(client->socket != -1)
+        close(client->socket);
+    free(client);
+
+    return NULL;
 }
 
 // Function handling SUBSCRIBE and UNSUBSCRIBE commands 
@@ -114,26 +121,24 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
 
     while (topicName)
     {
-        printf("Topic: %s\n", topicName);
-
         switch (cmd)
         {
             case CMD_SUBSCRIBE:
-                printf("SUBSCRIBE command received\n\n");
                 pthread_mutex_lock(&topicRegistry_mtx);
                 {
-                    addSubscriberToTopic(&topicRegistry, topicName, socket);
+                    if(addSubscriberToTopic(&topicRegistry, topicName, socket) == 0)
+                        printf("[SUBSCRIBE] Client %d  subscribed to topic '%s'\n", socket, topicName);
                 }
                 pthread_mutex_unlock(&topicRegistry_mtx);
                 
                 break;
 
             case CMD_UNSUBSCRIBE:
-                printf("UNSUBSCRIBE command received\n\n");
                 pthread_mutex_lock(&topicRegistry_mtx);
                 {
                     TOPIC *topic = findTopic(&topicRegistry, topicName);   
-                    removeSubscriberFromTopic(topic, socket);
+                    if(removeSubscriberFromTopic(topic, socket) == 0) 
+                        printf("[UNSUBSCRIBE] Client %d unsubscribed from topic '%s'\n", socket, topicName);
                 }
                 pthread_mutex_unlock(&topicRegistry_mtx);
                 
@@ -157,13 +162,15 @@ void *handle_subscriber(void *arg)
     pthread_mutex_lock(&topicRegistry_mtx);
     {
         TOPIC *t = topicRegistry.firstNode;
-            char topic_list[DEFAULT_BUFLEN] = "[SERVER] Topics: ";
-            while(t)
-            {
-                strcat(topic_list, t->name);
-                strcat(topic_list, " ");
-                t = t->nextTopic;
-            }
+        char topic_list[DEFAULT_BUFLEN] = "[SERVER] Topics: ";
+
+        while(t)
+        {
+            strcat(topic_list, t->name);
+            strcat(topic_list, " ");
+            t = t->nextTopic;
+        }
+        
         send(sock, topic_list, strlen(topic_list), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
@@ -181,6 +188,11 @@ void *handle_subscriber(void *arg)
         subscriberCommand(topics_start, cmd, sock);
     }
 
+    if(client->socket != -1)
+        close(client->socket);
+    free(client);
+
+    return NULL;
 }
 
 int main(void)
@@ -210,7 +222,7 @@ int main(void)
     }
 
     listen(server_socket, MAX_CLIENTS);
-    printf("Chat server listening on port %d...\n", PORT);
+    printf("Topic-based server listening on port %d...\n", PORT);
 
     int read_size = 0;
     char role_msg[DEFAULT_BUFLEN];
@@ -242,8 +254,8 @@ int main(void)
         if(strcmp(role_msg, "PUBLISHER") == 0)
         {
             client->type = PUBLISHER_TYPE;
-            printf("New publisher [%s:%d]\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-        
+            printf("[INFO] New publisher connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+            
             if (pthread_create(&tid, NULL, handle_publisher, (void*)client) != 0) 
             {
                 perror("pthread_create handleSubscriber failed");
@@ -258,8 +270,8 @@ int main(void)
         else 
         {
             client->type = SUBSCRIBER_TYPE;
-            printf("New subscriber [%s:%d]\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-            
+            printf("[INFO] New subscriber connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
             if (pthread_create(&tid, NULL, handle_subscriber, (void*)client) != 0) 
             {
                 perror("pthread_create handleSubscriber failed");
@@ -274,5 +286,13 @@ int main(void)
     }
 
     close(server_socket);
+    
+    // Destroy topics
+    pthread_mutex_lock(&topicRegistry_mtx);
+    {
+        destroyTopics(&topicRegistry);
+    }
+    pthread_mutex_unlock(&topicRegistry_mtx);
+
     return 0;
 }

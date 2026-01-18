@@ -143,8 +143,7 @@ int addSubscriberToTopic(TOPIC_HEAD *topics, const char *topicName, int socket)
     TOPIC *topic = findTopic(topics, topicName);
     if (topic == NULL)
     {
-        printf("Topic '%s' not found\n", topicName);
-        return -1;
+        printf("Client %d wanted to connect to '%s', which is not in the registry\n", socket, topicName);        return -1;
     }
 
     // Check if the subscriber is already in topic
@@ -213,25 +212,44 @@ void removeSubscriberFromAllTopics(TOPIC_HEAD *head, int socket)
     }
 }
 
-// Print topics and subscribers
+// Print topics and subscribers in a clean format
 void printTopicsAndSubscribers(TOPIC_HEAD *head)
 {
+    printf("[TOPICS] Current topics and subscribers:\n");
+
     TOPIC *t = head->firstNode;
+    if (!t)
+    {
+        printf("  No topics available.\n\n");
+        return;
+    }
+
     while (t)
     {
-        printf("Topic: %s\n", t->name);
+        printf("  - %s\n", t->name);  // Topic name
+
         SUBSCRIBER *s = t->subscribers;
-        printf("  Subscribers: ");
         if (!s)
-            printf("none");
-        while (s)
         {
-            printf("%d ", s->socket);
-            s = s->next;
+            printf("      Subscribers: none\n");
         }
-        printf("\n");
+        else
+        {
+            printf("      Subscribers: ");
+            while (s)
+            {
+                printf("%d", s->socket);
+                if (s->next) 
+                    printf(", "); // separate multiple subscribers
+                s = s->next;
+            }
+            printf("\n");
+        }
+
         t = t->nextTopic;
     }
+
+    printf("\n"); // extra line for readability
 }
 
 // Print topics
