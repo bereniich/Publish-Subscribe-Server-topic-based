@@ -147,16 +147,29 @@ int addSubscriberToTopic(TOPIC_HEAD *topics, const char *topicName, int socket)
         return -1;
     }
 
+    // Check if the subscriber is already in topic
+    SUBSCRIBER *current = topic->subscribers;
+    while (current)
+    {
+        if (current->socket == socket)
+        {
+            printf("Subscriber %d already subscribed to '%s'\n", socket, topicName);
+            return 1;  
+        }
+        current = current->next;
+    }
+
+    // If not
     SUBSCRIBER *sub = createSubscriber(socket);
-    if (sub == NULL) 
+    if (sub == NULL)
         return -1;
 
-    
     sub->next = topic->subscribers;
     topic->subscribers = sub;
 
-    return 0;
+    return 0;  
 }
+
 
 // Remove subscriber for specific topic
 int removeSubscriberFromTopic(TOPIC *topic, int socket)

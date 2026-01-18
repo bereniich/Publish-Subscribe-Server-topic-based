@@ -39,6 +39,7 @@ int addSubscriberToTopic(TOPIC_HEAD *topics, const char *topicName, int socket);
 int removeSubscriberFromTopic(TOPIC *topic, int socket);
 void removeSubscriberFromAllTopics(TOPIC_HEAD *head, int socket);
 
+void printTopicsAndSubscribers(TOPIC_HEAD *head);
 void printTopics(TOPIC_HEAD *head);
 
 #endif // LIST_H

@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 #define IP_ADDRESS "127.0.0.1"
-#define PORT 12345
+#define PORT 12346
 #define DEFAULT_BUFLEN 512
 
 // UVESTI FLAG ZA DISKONEKCIJU 
