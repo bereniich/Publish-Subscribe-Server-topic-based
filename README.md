@@ -1,2 +1,219 @@
-# Publish-Subscribe-Server-topic-based
-Topic-based publish–subscribe server implemented in C using TCP sockets. The server acts as a broker that manages subscriptions, dynamically creates topics, and forwards published messages only to subscribers interested in the corresponding topics. Supports multiple publishers and subscribers.
+# Publish–Subscribe Chat System (C, TCP, pthreads)
+
+This project implements a **TCP-based publish–subscribe messaging system** written in C.
+It consists of a **server**, **publishers**, and **subscribers**, allowing publishers to publish news to topics and subscribers to receive messages for topics they are subscribed to.
+
+---
+
+## Features
+
+* TCP client–server architecture
+* Multiple concurrent clients using **POSIX threads**
+* Topic-based publish–subscribe model
+* Dynamic topic creation
+* Multiple subscribers per topic
+* Safe concurrent access using **mutexes**
+* Separate publisher and subscriber clients
+* Graceful client disconnect support
+
+---
+
+## Architecture Overview
+
+### Server
+
+* Accepts TCP connections
+* Distinguishes clients as **PUBLISHER** or **SUBSCRIBER**
+* Maintains a global **topic registry**
+* Forwards published messages to all subscribers of a topic
+
+### Publisher Client
+
+* Publishes messages to topics
+* Automatically creates a topic if it does not exist
+
+### Subscriber Client
+
+* Subscribes/unsubscribes to topics
+* Receives messages asynchronously from the server
+
+---
+
+## Project Structure
+
+```
+.
+├── server.c          # Chat server
+├── publisher.c       # Publisher client
+├── subscriber.c      # Subscriber client
+├── list.c            # Topic & subscriber linked-list logic
+├── list.h            # Data structures and function declarations
+└── README.md
+```
+
+---
+
+## Data Structures
+
+### Topic
+
+```c
+typedef struct topic {
+    char *name;
+    SUBSCRIBER *subscribers;
+    struct topic *nextTopic;
+} TOPIC;
+```
+
+### Subscriber
+
+```c
+typedef struct subscriber {
+    int socket;
+    struct subscriber *next;
+} SUBSCRIBER;
+```
+
+---
+
+## Compilation
+
+Use `gcc` with pthread support.
+
+### Server
+
+```bash
+gcc server.c list.c -o server -pthread
+```
+
+### Publisher
+
+```bash
+gcc publisher.c -o publisher
+```
+
+### Subscriber
+
+```bash
+gcc subscriber.c -o subscriber -lpthread
+```
+
+---
+
+## Running the Application
+
+### 1. Start the Server
+
+```bash
+./server
+```
+
+Server listens on:
+
+```
+127.0.0.1:12346
+```
+
+---
+
+### 2. Start a Subscriber
+
+```bash
+./subscriber
+```
+
+You will receive a list of available topics on connection.
+
+#### Subscriber Commands
+
+```text
+[SUBSCRIBE] topic1 topic2
+[UNSUBSCRIBE] topic1
+/exit
+```
+
+---
+
+### 3. Start a Publisher
+
+```bash
+./publisher
+```
+
+#### Publish Message Format
+
+```text
+[topic] "message text"
+```
+
+Example:
+
+```text
+[sports] "Team A won the match"
+```
+
+---
+
+## Message Flow
+
+1. Publisher sends:
+
+   ```
+   [news] "Breaking news!"
+   ```
+2. Server:
+
+   * Extracts topic name
+   * Creates topic if missing
+   * Sends message to all subscribers of `news`
+3. Subscribers receive:
+
+   ```
+   [news] "Breaking news!"
+   ```
+
+---
+
+## Concurrency & Synchronization
+
+* The **topic registry** is protected using:
+
+```c
+pthread_mutex_t topicRegistry_mtx;
+```
+
+* Prevents race conditions during:
+
+  * Topic creation
+  * Subscription changes
+  * Message broadcasting
+
+---
+
+## Error Handling
+
+* Invalid message formats are rejected
+* Duplicate subscriptions are ignored
+* Memory allocation failures are checked
+* Socket errors are reported using `perror`
+
+---
+
+## Cleanup
+
+* Subscriber removal from all topics on disconnect
+* Proper memory deallocation for:
+
+  * Topics
+  * Subscribers
+  * Client structures
+
+---
+
+
+## License
+
+This project is intended for **educational purposes**.
+You are free to modify and extend it.
+
+---
