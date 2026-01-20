@@ -95,7 +95,7 @@ gcc publisher.c -o publisher
 ### Subscriber
 
 ```bash
-gcc subscriber.c -o subscriber -lpthread
+gcc subscriber.c -o subscriber -pthread
 ```
 
 ---
