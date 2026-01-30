@@ -14,7 +14,8 @@ typedef enum
 {
     CMD_NONE,
     CMD_SUBSCRIBE,
-    CMD_UNSUBSCRIBE
+    CMD_UNSUBSCRIBE,
+    CMD_LIST_TOPICS
 } server_cmd_t;
 
 typedef enum 
@@ -47,6 +48,12 @@ server_cmd_t parse_server_command(char *msg, char **topics_start)
         return CMD_UNSUBSCRIBE;
     }
 
+    if (strncmp(msg, "[LIST_TOPICS] ", 14) == 0)
+    {
+        *topics_start = NULL;
+        return CMD_LIST_TOPICS;
+    }
+
     return CMD_NONE;
 }
 
@@ -59,11 +66,29 @@ void send_to_subscribers(TOPIC* topic, const char* msg, int sender_socket)
     SUBSCRIBER* sub = topic->subscribers;
     while(sub)
     {
-        if(send(sub->socket, msg, strlen(msg), 0) < 0) 
+        if(sub->socket != -1 && send(sub->socket, msg, strlen(msg), 0) < 0) 
             perror("send to subscriber failed");
     
         sub = sub->next;
     }
+}
+
+void send_topics_to_subscribers(int socket)
+{
+    pthread_mutex_lock(&topicRegistry_mtx);
+    {
+        char topic_list[DEFAULT_BUFLEN] = "[SERVER] Topics: ";
+        TOPIC *t = topicRegistry.firstNode;
+
+        while(t)
+        {
+            strncat(topic_list, t->name, DEFAULT_BUFLEN - strlen(topic_list) - 1);
+            strncat(topic_list, " ", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+            t = t->nextTopic;
+        }
+        send(socket, topic_list, strlen(topic_list), 0);
+    }
+    pthread_mutex_unlock(&topicRegistry_mtx);
 }
 
 // Publisher thread functions
@@ -117,6 +142,13 @@ void *handle_publisher(void *arg)
 // Function handling SUBSCRIBE and UNSUBSCRIBE commands 
 void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
 {
+
+    if(cmd == CMD_LIST_TOPICS)
+    {
+        send_topics_to_subscribers(socket);
+        return;
+    }
+
     char *topicName = strtok(topics_str, " \n");
 
     while (topicName)
@@ -159,21 +191,7 @@ void *handle_subscriber(void *arg)
     client_type_t type = client->type;
 
     // Send the list of topics to a subscriber
-    pthread_mutex_lock(&topicRegistry_mtx);
-    {
-        TOPIC *t = topicRegistry.firstNode;
-        char topic_list[DEFAULT_BUFLEN] = "[SERVER] Topics: ";
-
-        while(t)
-        {
-            strcat(topic_list, t->name);
-            strcat(topic_list, " ");
-            t = t->nextTopic;
-        }
-        
-        send(sock, topic_list, strlen(topic_list), 0);
-    }
-    pthread_mutex_unlock(&topicRegistry_mtx);
+    send_topics_to_subscribers(sock);
 
     int read_size = 0;
     char buffer[DEFAULT_BUFLEN];
@@ -188,6 +206,9 @@ void *handle_subscriber(void *arg)
         subscriberCommand(topics_start, cmd, sock);
     }
 
+    pthread_mutex_lock(&topicRegistry_mtx);
+    removeSubscriberFromAllTopics(&topicRegistry, sock);
+    pthread_mutex_unlock(&topicRegistry_mtx);
     if(client->socket != -1)
         close(client->socket);
     free(client);
