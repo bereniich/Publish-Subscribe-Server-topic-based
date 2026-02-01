@@ -241,5 +241,4 @@ pthread_mutex_t topicRegistry_mtx;
 This project is intended for **educational purposes**.
 You are free to modify and extend it.
 
-```
 
