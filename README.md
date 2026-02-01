@@ -228,14 +228,6 @@ pthread_mutex_t topicRegistry_mtx;
 
 ---
 
-## Notes
-
-* Server IP address and port are no longer hardcoded in the clients.
-* Valid port range: `1–65535`
-* Incorrect argument count displays usage instructions.
-
----
-
 ## License
 
 This project is intended for **educational purposes**.
