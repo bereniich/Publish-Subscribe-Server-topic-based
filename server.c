@@ -131,6 +131,8 @@ void *handle_publisher(void *arg)
         }
         pthread_mutex_unlock(&topicRegistry_mtx);
     }
+    
+    printf("[INFO] Publisher (socket = %d) disconnected.\n", client->socket);
 
     if(client->socket != -1)
         close(client->socket);
@@ -204,10 +206,12 @@ void *handle_subscriber(void *arg)
 
         server_cmd_t cmd = parse_server_command(buffer, &topics_start);
         subscriberCommand(topics_start, cmd, sock);
+        memset(&buffer, '\0', DEFAULT_BUFLEN);
     }
 
     pthread_mutex_lock(&topicRegistry_mtx);
     removeSubscriberFromAllTopics(&topicRegistry, sock);
+    printf("[INFO] Subscriber (socket = %d) disconnected.\n", client->socket);
     pthread_mutex_unlock(&topicRegistry_mtx);
     if(client->socket != -1)
         close(client->socket);
@@ -275,7 +279,7 @@ int main(void)
         if(strcmp(role_msg, "PUBLISHER") == 0)
         {
             client->type = PUBLISHER_TYPE;
-            printf("[INFO] New publisher connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+            printf("[INFO] New publisher (socket = %d) connected: %s:%d\n", client->socket, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
             
             if (pthread_create(&tid, NULL, handle_publisher, (void*)client) != 0) 
             {
@@ -291,7 +295,7 @@ int main(void)
         else 
         {
             client->type = SUBSCRIBER_TYPE;
-            printf("[INFO] New subscriber connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+            printf("[INFO] New subscriber (socket = %d) connected: %s:%d\n", client->socket, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
             if (pthread_create(&tid, NULL, handle_subscriber, (void*)client) != 0) 
             {

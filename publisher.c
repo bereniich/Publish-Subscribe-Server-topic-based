@@ -56,8 +56,23 @@ int valid_message_format(const char *msg)
     return 1;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    if(argc != 3)
+    {
+        fprintf(stderr, "Correct usage: %s <server_ip> <server_port>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char *server_ip = argv[1];
+    int server_port = atoi(argv[2]);
+
+    if(server_port <= 0 || server_port > 65535)
+    {
+        fprintf(stderr, "Invalid port number.\n");
+        return EXIT_FAILURE;
+    }
+
     int client_socket_fd;
     char message[DEFAULT_BUFLEN];
 
@@ -73,8 +88,8 @@ int main(void)
 
     // Set up the server address structure
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
-    server_address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
+    server_address.sin_port = htons(server_port);
+    server_address.sin_addr.s_addr = inet_addr(server_ip);
 
     // Connect to server
     if (connect(client_socket_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
@@ -83,8 +98,8 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    printf("Connected to server [%s:%d]\n", IP_ADDRESS, PORT);
-    printf("Type /exit to quit\n\n");
+    printf("Connected to server [%s:%d]\n", server_ip, server_port);
+    printf("Type /exit to quit\n");
     printf("Publish format: [topic] \"text\" \n\n");
 
     // Send a message to the server to indicate whether this client is a publisher or subscriber
@@ -99,14 +114,16 @@ int main(void)
 
     while (1)
     {
-        printf("> ");
         fflush(stdout);
+        memset(message, '\0', DEFAULT_BUFLEN);
 
         fgets(message, DEFAULT_BUFLEN, stdin);
 
         if(strcmp(message, CMD_EXIT) == 0)
         {
             printf("Disconnecting...\n");
+            sleep(2);
+            printf("Disconnected.\n");
             break;
         }
             

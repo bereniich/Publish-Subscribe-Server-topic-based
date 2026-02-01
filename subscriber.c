@@ -7,8 +7,6 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-#define IP_ADDRESS "127.0.0.1"
-#define PORT 12345
 #define DEFAULT_BUFLEN 512
 
 // Command types
@@ -82,13 +80,17 @@ void *recv_thread(void *arg)
     while (!should_exit() && (read_size = recv(client_socket_fd, buffer, DEFAULT_BUFLEN - 1, 0)) > 0)
     {
         buffer[read_size] = '\0';
-        printf("%s\n> ", buffer);
+        printf("%s\n", buffer);
         fflush(stdout);
+        memset(buffer, 0, DEFAULT_BUFLEN);
     }
 
     if(read_size == 0) 
     {
-        printf("\nServer disconnected.\n");
+        pthread_mutex_lock(&exit_mutex);
+        if(!exit_flag) printf("\nServer disconnected.\n");
+        pthread_mutex_unlock(&exit_mutex);
+
         if(client_socket_fd != -1)
             close(client_socket_fd);
     } 
@@ -107,8 +109,8 @@ void *send_thread(void *arg)
 
     while (1)
     {
-        printf("> ");
         fflush(stdout);
+        memset(message, 0, DEFAULT_BUFLEN);
 
         fgets(message, DEFAULT_BUFLEN, stdin);
 
@@ -117,11 +119,14 @@ void *send_thread(void *arg)
             case CMD_EXIT_TYPE:
                 printf("Disconnecting...\n");
                 set_exit_flag();
+                // Pause for 2 seconds before shutting down, so the user sees "Disconnecting..."
+                sleep(2); 
                 shutdown(client_socket_fd, SHUT_RDWR);
                 if(client_socket_fd != -1) {
                     close(client_socket_fd);
                     return NULL;
                 }
+                printf("Disconnected.\n");
                 break;
 
             case CMD_SUBSCRIBE_TYPE:
@@ -154,8 +159,23 @@ void *send_thread(void *arg)
     return NULL;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    if (argc != 3)  // Expect IP and port
+    {
+        fprintf(stderr, "Correct usage: %s <server_ip> <server_port>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char *server_ip = argv[1];
+    int server_port = atoi(argv[2]);  // Convert string to int
+
+    if (server_port <= 0 || server_port > 65535) 
+    {
+        fprintf(stderr, "Invalid port number.\n");
+        return EXIT_FAILURE;
+    }
+
     int client_socket_fd;
 
     // Socket creation
@@ -170,17 +190,19 @@ int main(void)
 
     // Set up the server address structure
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT);
-    server_address.sin_addr.s_addr = inet_addr(IP_ADDRESS);
+    server_address.sin_port = htons(server_port);
+    server_address.sin_addr.s_addr = inet_addr(server_ip);
 
     // Connect to server
     if (connect(client_socket_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
     {
         perror("failed to connect");
+        if(client_socket_fd != -1)
+            close(client_socket_fd);
         return EXIT_FAILURE;
     }
 
-    printf("Connected to server [%s:%d]\n", IP_ADDRESS, PORT);
+    printf("Connected to server [%s:%d]\n", server_ip, server_port);
     printf("Commands:\n");
     printf("  %s - disconnect from server and unsubscribe from all topics\n", CMD_EXIT);
     printf("  %stopic1 topic2 ... topicN - subscribe to topics\n", CMD_SUBSCRIBE);
