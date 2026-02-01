@@ -116,7 +116,7 @@ gcc subscriber.c -o subscriber -pthread
 Server listens on:
 
 ```
-127.0.0.1:12346
+127.0.0.1:12345
 ```
 
 ---
@@ -130,7 +130,7 @@ Server listens on:
 Example:
 
 ```bash
-./subscriber 127.0.0.1 12346
+./subscriber 127.0.0.1 12345
 ```
 
 You will receive a list of available topics upon connection.
@@ -154,7 +154,7 @@ You will receive a list of available topics upon connection.
 Example:
 
 ```bash
-./publisher 127.0.0.1 12346
+./publisher 127.0.0.1 12345
 ```
 
 #### Publish Message Format
