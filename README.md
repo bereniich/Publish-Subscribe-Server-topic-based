@@ -1,3 +1,9 @@
+Naravno 👍
+Evo **kompletnog, čistog `README.md`**, baziranog na tvom tekstu, ali **ažuriranog tako da jasno dokumentuje unos IP adrese i porta kroz komandnu liniju**. Spremno za **copy–paste**.
+
+---
+
+```md
 # Publish–Subscribe Chat System (C, TCP, pthreads)
 
 This project implements a **TCP-based publish–subscribe messaging system** written in C.
@@ -15,6 +21,7 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 * Safe concurrent access using **mutexes**
 * Separate publisher and subscriber clients
 * Graceful client disconnect support
+* Server IP and port configurable via command-line arguments
 
 ---
 
@@ -31,17 +38,20 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 
 * Publishes messages to topics
 * Automatically creates a topic if it does not exist
+* Connects to the server using command-line provided IP and port
 
 ### Subscriber Client
 
 * Subscribes/unsubscribes to topics
 * Receives messages asynchronously from the server
+* Connects to the server using command-line provided IP and port
 
 ---
 
 ## Project Structure
 
 ```
+
 .
 ├── server.c          # Chat server
 ├── publisher.c       # Publisher client
@@ -49,7 +59,8 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 ├── list.c            # Topic & subscriber linked-list logic
 ├── list.h            # Data structures and function declarations
 └── README.md
-```
+
+````
 
 ---
 
@@ -63,7 +74,7 @@ typedef struct topic {
     SUBSCRIBER *subscribers;
     struct topic *nextTopic;
 } TOPIC;
-```
+````
 
 ### Subscriber
 
@@ -119,10 +130,16 @@ Server listens on:
 ### 2. Start a Subscriber
 
 ```bash
-./subscriber
+./subscriber <server_ip> <server_port>
 ```
 
-You will receive a list of available topics on connection.
+Example:
+
+```bash
+./subscriber 127.0.0.1 12346
+```
+
+You will receive a list of available topics upon connection.
 
 #### Subscriber Commands
 
@@ -137,7 +154,13 @@ You will receive a list of available topics on connection.
 ### 3. Start a Publisher
 
 ```bash
-./publisher
+./publisher <server_ip> <server_port>
+```
+
+Example:
+
+```bash
+./publisher 127.0.0.1 12346
 ```
 
 #### Publish Message Format
@@ -164,8 +187,8 @@ Example:
 2. Server:
 
    * Extracts topic name
-   * Creates topic if missing
-   * Sends message to all subscribers of `news`
+   * Creates topic if it does not exist
+   * Sends the message to all subscribers of `news`
 3. Subscribers receive:
 
    ```
@@ -194,6 +217,7 @@ pthread_mutex_t topicRegistry_mtx;
 
 * Invalid message formats are rejected
 * Duplicate subscriptions are ignored
+* Invalid command-line arguments terminate the client
 * Memory allocation failures are checked
 * Socket errors are reported using `perror`
 
@@ -210,10 +234,18 @@ pthread_mutex_t topicRegistry_mtx;
 
 ---
 
+## Notes
+
+* Server IP address and port are no longer hardcoded in the clients.
+* Valid port range: `1–65535`
+* Incorrect argument count displays usage instructions.
+
+---
 
 ## License
 
 This project is intended for **educational purposes**.
 You are free to modify and extend it.
 
----
+```
+
