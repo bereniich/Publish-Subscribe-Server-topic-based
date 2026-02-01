@@ -1,9 +1,3 @@
-Naravno 👍
-Evo **kompletnog, čistog `README.md`**, baziranog na tvom tekstu, ali **ažuriranog tako da jasno dokumentuje unos IP adrese i porta kroz komandnu liniju**. Spremno za **copy–paste**.
-
----
-
-```md
 # Publish–Subscribe Chat System (C, TCP, pthreads)
 
 This project implements a **TCP-based publish–subscribe messaging system** written in C.
