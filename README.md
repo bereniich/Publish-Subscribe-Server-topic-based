@@ -212,8 +212,6 @@ pthread_mutex_t exit_mutex;
 ```
 
 * Ensures coordinated and graceful termination of send/receive threads during `/exit` or server disconnect.
-
-```
 ---
 
 ## Error Handling
