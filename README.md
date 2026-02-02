@@ -190,14 +190,13 @@ Example:
    ```
 
 ---
-
 ## Concurrency & Synchronization
 
 * The **topic registry** is protected using:
 
 ```c
 pthread_mutex_t topicRegistry_mtx;
-```
+````
 
 * Prevents race conditions during:
 
@@ -205,6 +204,16 @@ pthread_mutex_t topicRegistry_mtx;
   * Subscription changes
   * Message broadcasting
 
+* The **subscriber client shutdown** is synchronized using a thread-safe exit flag:
+
+```c
+bool exit_flag;
+pthread_mutex_t exit_mutex;
+```
+
+* Ensures coordinated and graceful termination of send/receive threads during `/exit` or server disconnect.
+
+```
 ---
 
 ## Error Handling
