@@ -104,6 +104,7 @@ void *handle_publisher(void *arg)
 
     while((read_size = recv(client->socket, buffer, DEFAULT_BUFLEN - 1, 0)) > 0)
     {
+        buffer[read_size] = '\0';
         memset(&topicName, '\0', DEFAULT_BUFLEN);
         // Taking topic name out of received message
         int j = 0;
@@ -199,6 +200,7 @@ void *handle_subscriber(void *arg)
     char buffer[DEFAULT_BUFLEN];
     char *topics_start; 
 
+    memset(buffer, 0, DEFAULT_BUFLEN);
     // Get command from a subscriber
     while ((read_size = recv(sock, buffer, DEFAULT_BUFLEN - 1, 0)) > 0)
     {
