@@ -1,0 +1,10 @@
+# Binaries
+server
+publisher
+subscriber
+
+# Object files
+*.o
+
+# Editor stuff
+*~
