@@ -88,7 +88,7 @@ void send_topics_to_subscribers(int socket)
             t = t->nextTopic;
         }
         
-        strncat(topic_list, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+        strncat(topic_list, "Use /subscribe topic1 topic2 to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
         send(socket, topic_list, strlen(topic_list), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
