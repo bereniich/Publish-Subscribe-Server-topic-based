@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define PORT            12345
+#define PORT            12346
 #define DEFAULT_BUFLEN  512
 #define MAX_CLIENTS     20
 
@@ -36,19 +36,19 @@ TOPIC_HEAD topicRegistry;
 // Command parse
 server_cmd_t parse_server_command(char *msg, char **topics_start)
 {
-    if (strncmp(msg, "[SUBSCRIBE] ", 12) == 0)
+    if (strncmp(msg, "/subscribe ", 11) == 0)
     {
-        *topics_start = msg + 12;
+        *topics_start = msg + 11;
         return CMD_SUBSCRIBE;
     }
 
-    if (strncmp(msg, "[UNSUBSCRIBE] ", 14) == 0)
+    if (strncmp(msg, "/unsubscribe ", 13) == 0)
     {
-        *topics_start = msg + 14;
+        *topics_start = msg + 13;
         return CMD_UNSUBSCRIBE;
     }
 
-    if (strncmp(msg, "[LIST_TOPICS] ", 14) == 0)
+    if (strncmp(msg, "/topics", 7) == 0)
     {
         *topics_start = NULL;
         return CMD_LIST_TOPICS;
@@ -88,7 +88,7 @@ void send_topics_to_subscribers(int socket)
             t = t->nextTopic;
         }
         
-        strncat(topic_list, "Use [SUBSCRIBE] topic_name to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+        strncat(topic_list, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
         send(socket, topic_list, strlen(topic_list), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);

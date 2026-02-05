@@ -138,8 +138,9 @@ You will receive a list of available topics upon connection.
 #### Subscriber Commands
 
 ```text
-[SUBSCRIBE] topic1 topic2
-[UNSUBSCRIBE] topic1
+/subscribe "topic1" "topic2"
+/unsubscribe "topic1" "topic2"
+/topics
 /exit
 ```
 
