@@ -77,15 +77,18 @@ void send_topics_to_subscribers(int socket)
 {
     pthread_mutex_lock(&topicRegistry_mtx);
     {
-        char topic_list[DEFAULT_BUFLEN] = "[SERVER] Topics: ";
+        char topic_list[DEFAULT_BUFLEN] = "Currently available topics:\n";
         TOPIC *t = topicRegistry.firstNode;
 
         while(t)
         {
+            strncat(topic_list, "  - ", DEFAULT_BUFLEN - strlen(topic_list) - 1);
             strncat(topic_list, t->name, DEFAULT_BUFLEN - strlen(topic_list) - 1);
-            strncat(topic_list, " ", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+            strncat(topic_list, "\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
             t = t->nextTopic;
         }
+        
+        strncat(topic_list, "Use [SUBSCRIBE] topic_name to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
         send(socket, topic_list, strlen(topic_list), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
@@ -145,14 +148,28 @@ void *handle_publisher(void *arg)
 // Function handling SUBSCRIBE and UNSUBSCRIBE commands 
 void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
 {
-
     if(cmd == CMD_LIST_TOPICS)
     {
         send_topics_to_subscribers(socket);
         return;
     }
 
+    if (topics_str == NULL || strlen(topics_str) == 0)
+    {
+        char msg[DEFAULT_BUFLEN];
+        snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    }
+
     char *topicName = strtok(topics_str, " \n");
+    if (topicName == NULL)
+    {
+        char msg[DEFAULT_BUFLEN];
+        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Error: Topic name cannot be empty.\n");
+        send(socket, msg, strlen(msg), 0);
+        return;
+    }
 
     while (topicName)
     {
@@ -161,23 +178,52 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
             case CMD_SUBSCRIBE:
                 pthread_mutex_lock(&topicRegistry_mtx);
                 {
-                    if(addSubscriberToTopic(&topicRegistry, topicName, socket) == 0)
-                        printf("[SUBSCRIBE] Client %d  subscribed to topic '%s'\n", socket, topicName);
+                    int res = addSubscriberToTopic(&topicRegistry, topicName, socket);
+                    if(res == 0)
+                    {
+                        printf("[SUBSCRIBE] Client %d subscribed to topic '%s'\n", socket, topicName);
+                        char msg[DEFAULT_BUFLEN];
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Subscribed to '%s'\n", topicName);
+                        send(socket, msg, strlen(msg), 0);
+                    }
+                    else if(res == -1)
+                    {
+                        char msg[DEFAULT_BUFLEN];
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Topic '%s' does not exist.\n", topicName);
+                        send(socket, msg, strlen(msg), 0);
+                    }
+                    else if(res == 1)
+                    {
+                        char msg[DEFAULT_BUFLEN];
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Already subscribed to '%s'\n", topicName);
+                        send(socket, msg, strlen(msg), 0);
+                    }
                 }
-                pthread_mutex_unlock(&topicRegistry_mtx);
-                
+                pthread_mutex_unlock(&topicRegistry_mtx);  
                 break;
 
             case CMD_UNSUBSCRIBE:
                 pthread_mutex_lock(&topicRegistry_mtx);
                 {
                     TOPIC *topic = findTopic(&topicRegistry, topicName);   
-                    if(removeSubscriberFromTopic(topic, socket) == 0) 
+                    int res = removeSubscriberFromTopic(topic, socket);
+                    if(res == 0)
+                    {
                         printf("[UNSUBSCRIBE] Client %d unsubscribed from topic '%s'\n", socket, topicName);
+                        char msg[DEFAULT_BUFLEN];
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Unsubscribed from '%s'\n", topicName);
+                        send(socket, msg, strlen(msg), 0);
+                    }
+                    else
+                    {
+                        char msg[DEFAULT_BUFLEN];
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Cannot unsubscribe from '%s' (not subscribed or topic does not exist)\n", topicName);
+                        send(socket, msg, strlen(msg), 0);
+                    }
                 }
                 pthread_mutex_unlock(&topicRegistry_mtx);
-                
                 break;
+
         }
         topicName = strtok(NULL, " \n");
     }

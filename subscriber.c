@@ -88,17 +88,20 @@ void *recv_thread(void *arg)
     if(read_size == 0) 
     {
         pthread_mutex_lock(&exit_mutex);
-        if(!exit_flag) printf("\nServer disconnected.\n");
+        if(!exit_flag) {
+            printf("\nServer disconnected.\n");
+        }
         pthread_mutex_unlock(&exit_mutex);
-
-        if(client_socket_fd != -1)
-            close(client_socket_fd);
     } 
     else if(read_size < 0)
     {
         perror("recv failed");
     }
     
+
+    if(client_socket_fd != -1)
+        close(client_socket_fd);
+
     return NULL;
 }
 
@@ -119,14 +122,17 @@ void *send_thread(void *arg)
             case CMD_EXIT_TYPE:
                 printf("Disconnecting...\n");
                 set_exit_flag();
+                
                 // Pause for 2 seconds before shutting down, so the user sees "Disconnecting..."
                 sleep(2); 
                 shutdown(client_socket_fd, SHUT_RDWR);
+
                 if(client_socket_fd != -1) {
                     close(client_socket_fd);
                     return NULL;
                 }
                 printf("Disconnected.\n");
+
                 break;
 
             case CMD_SUBSCRIBE_TYPE:
