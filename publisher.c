@@ -129,18 +129,25 @@ int main(int argc, char *argv[])
             printf("Disconnected.\n");
             break;
         }
-            
-        if(!valid_message_format(message))
+
+        if(strlen(message) >= DEFAULT_BUFLEN - 1)
+        {
+            printf("ERROR: Message too long. Max %d characters allowed.\n", DEFAULT_BUFLEN - 1);
+        }else if(!valid_message_format(message))
         {
             printf("ERROR: Invalid publish format.\n");
-            printf("Correct format: [topic] \"news\" \n");
+            printf("Correct formats:\n\t1. [topic] \"news\" ");
+            printf("\n\t2. /exit\n");
         }
         else
         {
             if(send(client_socket_fd, message, strlen(message), 0) < 0) 
-            perror("failed to send publish message");   
-        }  
-    
+            {
+                perror("failed to send publish message");   
+                close(client_socket_fd);
+                exit(EXIT_FAILURE);
+            }  
+        }
     }
 
     close(client_socket_fd);

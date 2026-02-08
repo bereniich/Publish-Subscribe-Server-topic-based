@@ -39,9 +39,18 @@ command_type_t parse_command(const char *msg)
         strlen(msg) > strlen(CMD_UNSUBSCRIBE))
         return CMD_UNSUBSCRIBE_TYPE;
 
-    if (strncmp(msg, CMD_LIST_TOPICS, strlen(CMD_LIST_TOPICS)) == 0 &&
-        strlen(msg) > strlen(CMD_LIST_TOPICS))
+    if (strncmp(msg, CMD_LIST_TOPICS, strlen(CMD_LIST_TOPICS)) == 0)
+    {
+        // Everyhing after '/topics' must be space or '\n'
+        const char *rest = msg + strlen(CMD_LIST_TOPICS);
+        while (*rest != '\0')
+        {
+            if (*rest != ' ' && *rest != '\t' && *rest != '\n')
+                return CMD_INVALID; 
+            rest++;
+        }
         return CMD_LIST_TOPICS_TYPE;
+    }
 
     return CMD_INVALID;
 }
@@ -126,12 +135,12 @@ void *send_thread(void *arg)
                 // Pause for 2 seconds before shutting down, so the user sees "Disconnecting..."
                 sleep(2); 
                 shutdown(client_socket_fd, SHUT_RDWR);
+                printf("Disconnected.\n");
 
                 if(client_socket_fd != -1) {
                     close(client_socket_fd);
                     return NULL;
                 }
-                printf("Disconnected.\n");
 
                 break;
 

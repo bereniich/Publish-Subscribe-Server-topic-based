@@ -76,10 +76,10 @@ static const char *next_quoted_topic(const char *p, char *out, size_t out_size)
 }
 
 // Send news to all subscribers of specific topic 
-void send_to_subscribers(TOPIC* topic, const char* msg, int sender_socket)
+void send_to_subscribers(TOPIC* topic, const char* msg)
 {
     if (!topic) return;
-    printf("[PUBLISH] Sending message on topic '%s': %s\n", topic->name, msg);
+    printf("[PUBLISH] Sending message on topic '%s': %s", topic->name, msg);
 
     SUBSCRIBER* sub = topic->subscribers;
     while(sub)
@@ -98,28 +98,35 @@ void send_topics_to_subscribers(int socket)
         char line[DEFAULT_BUFLEN];
         TOPIC *t = topicRegistry.firstNode;
 
-        snprintf(line, DEFAULT_BUFLEN, "Currently available topics:\n");
-        send(socket, line, strlen(line), 0);
-
-        while (t)
+        if (t == NULL) // Empty registry
         {
-            snprintf(line, DEFAULT_BUFLEN, "  - %s\n", t->name);
+            snprintf(line, DEFAULT_BUFLEN, "Currently no available topics\n");
             send(socket, line, strlen(line), 0);
-            t = t->nextTopic;
         }
+        else
+        {
+            snprintf(line, DEFAULT_BUFLEN, "Currently available topics:\n");
+            send(socket, line, strlen(line), 0);
 
-        snprintf(line, DEFAULT_BUFLEN, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n");
-        send(socket, line, strlen(line), 0);
+            while (t)
+            {
+                snprintf(line, DEFAULT_BUFLEN, "  - %s\n", t->name);
+                send(socket, line, strlen(line), 0);
+                t = t->nextTopic;
+            }
+
+            snprintf(line, DEFAULT_BUFLEN, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n");
+            send(socket, line, strlen(line), 0);
+        }
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
 }
+
 
 // Publisher thread functions
 void *handle_publisher(void *arg)
 {
     CLIENT *client = (CLIENT *)arg;  
-    int sock = client->socket;
-    client_type_t type = client->type;
 
     char buffer[DEFAULT_BUFLEN];
     int read_size;
@@ -151,7 +158,7 @@ void *handle_publisher(void *arg)
             }
 
             // Multicast
-            send_to_subscribers(topic, buffer, sock);
+            send_to_subscribers(topic, buffer);
         }
         pthread_mutex_unlock(&topicRegistry_mtx);
     }
@@ -252,6 +259,11 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
                 pthread_mutex_unlock(&topicRegistry_mtx);
                 break;
 
+            case CMD_LIST_TOPICS:
+                break;
+
+            case CMD_NONE:
+                break;
         }
     }
 
@@ -285,10 +297,6 @@ void *handle_subscriber(void *arg)
 {
     CLIENT *client = (CLIENT *)arg;  
     int sock = client->socket;
-    client_type_t type = client->type;
-
-    // Send the list of topics to a subscriber
-    send_topics_to_subscribers(sock);
 
     int read_size = 0;
     char buffer[DEFAULT_BUFLEN];
