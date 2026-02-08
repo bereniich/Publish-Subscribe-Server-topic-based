@@ -80,7 +80,7 @@ void *recv_thread(void *arg)
     while (!should_exit() && (read_size = recv(client_socket_fd, buffer, DEFAULT_BUFLEN - 1, 0)) > 0)
     {
         buffer[read_size] = '\0';
-        printf("%s\n", buffer);
+        fputs(buffer, stdout);
         fflush(stdout);
         memset(buffer, 0, DEFAULT_BUFLEN);
     }
