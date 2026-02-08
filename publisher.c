@@ -20,38 +20,41 @@ Expected message format:
 
 int valid_message_format(const char *msg)
 {
+    char tmp[DEFAULT_BUFLEN];
+    strncpy(tmp, msg, DEFAULT_BUFLEN - 1);
+    tmp[DEFAULT_BUFLEN - 1] = '\0';
+
+    size_t len = strlen(tmp);
+    while (len > 0)
+    {
+        char c = tmp[len - 1];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+            break;
+        tmp[len - 1] = '\0';
+        len--;
+    }
+
     //shortest format [a] "b"
-    if(strlen(msg) < 7) return 0;
+    if(strlen(tmp) < 7) return 0;
     
-    if(msg[0] != '[') return 0;
+    if(tmp[0] != '[') return 0;
 
     int i = 0;
-    while(msg[i] != ']' && msg[i] != '\0') ++i;
-    if(msg[i] != ']') return 0;
+    while(tmp[i] != ']' && tmp[i] != '\0') ++i;
+    if(tmp[i] != ']') return 0;
     //empty topic: [] "text"
-    if(msg[i - 1] == '[') return 0;
+    if(tmp[i - 1] == '[') return 0;
 
-    if(i < strlen(msg) && msg[++i] != ' ') return 0;
+    if(i < strlen(tmp) && tmp[++i] != ' ') return 0;
 
-    if(i < strlen(msg) && msg[++i] != '"') return 0;
+    if(i < strlen(tmp) && tmp[++i] != '"') return 0;
     //i is index of first "
 
-    if(msg[strlen(msg) - 1] == '\n')
-    {
-        if(msg[strlen(msg) - 2] != '"') return 0;
-        //only one ": [topic] "
-        if(i == strlen(msg) - 2) return 0;
-        //empty text: [topic] ""
-        if(msg[strlen(msg) - 3] == '"' && i == strlen(msg) - 3) return 0;
-    }
-    else 
-    {
-        if(msg[strlen(msg) - 1] != '"') return 0;
-        //only one ": [topic] "
-        if(i == strlen(msg) - 1) return 0;
-        //empty text: [topic] ""
-        if(msg[strlen(msg) - 2] == '"' && i == strlen(msg) - 2) return 0;
-    }
+    if(tmp[strlen(tmp) - 1] != '"') return 0;
+    //only one ": [topic] "
+    if(i == strlen(tmp) - 1) return 0;
+    //empty text: [topic] ""
+    if(tmp[strlen(tmp) - 2] == '"' && i == strlen(tmp) - 2) return 0;
 
     return 1;
 }
