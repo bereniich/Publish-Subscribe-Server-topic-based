@@ -154,7 +154,7 @@ void *send_thread(void *arg)
             default:
                 printf("ERROR: Invalid command.\n");
                 printf("Allowed commands:\n");
-                printf("  %s", CMD_EXIT);
+                printf("  %s\n", CMD_EXIT);
                 printf("  %s\"topic1\" \"topic2\" ...\n", CMD_SUBSCRIBE);
                 printf("  %s\"topic1\" \"topic2\" ...\n", CMD_UNSUBSCRIBE);
                 printf("  %s\n", CMD_LIST_TOPICS);

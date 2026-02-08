@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include "list.h"
 
-#define PORT            12346
+#define PORT            12345
 #define DEFAULT_BUFLEN  512
 #define MAX_CLIENTS     20
 
@@ -95,19 +95,21 @@ void send_topics_to_subscribers(int socket)
 {
     pthread_mutex_lock(&topicRegistry_mtx);
     {
-        char topic_list[DEFAULT_BUFLEN] = "Currently available topics:\n";
+        char line[DEFAULT_BUFLEN];
         TOPIC *t = topicRegistry.firstNode;
 
-        while(t)
+        snprintf(line, DEFAULT_BUFLEN, "Currently available topics:\n");
+        send(socket, line, strlen(line), 0);
+
+        while (t)
         {
-            strncat(topic_list, "  - ", DEFAULT_BUFLEN - strlen(topic_list) - 1);
-            strncat(topic_list, t->name, DEFAULT_BUFLEN - strlen(topic_list) - 1);
-            strncat(topic_list, "\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+            snprintf(line, DEFAULT_BUFLEN, "  - %s\n", t->name);
+            send(socket, line, strlen(line), 0);
             t = t->nextTopic;
         }
-        
-        strncat(topic_list, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
-        send(socket, topic_list, strlen(topic_list), 0);
+
+        snprintf(line, DEFAULT_BUFLEN, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n");
+        send(socket, line, strlen(line), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
 }
@@ -209,19 +211,19 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
                     {
                         printf("[SUBSCRIBE] Client %d subscribed to topic '%s'\n", socket, topicName);
                         char msg[DEFAULT_BUFLEN];
-                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Subscribed to '%s'\n", topicName);
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Subscribed to '%.200s'\n", topicName);
                         send(socket, msg, strlen(msg), 0);
                     }
                     else if(res == -1)
                     {
                         char msg[DEFAULT_BUFLEN];
-                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Topic '%s' does not exist.\n", topicName);
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Topic '%.200s' does not exist.\n", topicName);
                         send(socket, msg, strlen(msg), 0);
                     }
                     else if(res == 1)
                     {
                         char msg[DEFAULT_BUFLEN];
-                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Already subscribed to '%s'\n", topicName);
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Already subscribed to '%.200s'\n", topicName);
                         send(socket, msg, strlen(msg), 0);
                     }
                 }
@@ -237,13 +239,13 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
                     {
                         printf("[UNSUBSCRIBE] Client %d unsubscribed from topic '%s'\n", socket, topicName);
                         char msg[DEFAULT_BUFLEN];
-                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Unsubscribed from '%s'\n", topicName);
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Unsubscribed from '%.200s'\n", topicName);
                         send(socket, msg, strlen(msg), 0);
                     }
                     else
                     {
                         char msg[DEFAULT_BUFLEN];
-                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Cannot unsubscribe from '%s' (not subscribed or topic does not exist)\n", topicName);
+                        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Cannot unsubscribe from '%.200s' (not subscribed or topic does not exist)\n", topicName);
                         send(socket, msg, strlen(msg), 0);
                     }
                 }
