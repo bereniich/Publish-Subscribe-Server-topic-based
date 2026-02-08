@@ -98,13 +98,17 @@ void *recv_thread(void *arg)
     {
         pthread_mutex_lock(&exit_mutex);
         if(!exit_flag) {
-            printf("\nServer disconnected.\n");
+            printf("\nServer disconnected. Press enter to exit.\n");
         }
         pthread_mutex_unlock(&exit_mutex);
+        set_exit_flag();
+        shutdown(client_socket_fd, SHUT_RDWR);
     } 
     else if(read_size < 0)
     {
         perror("recv failed");
+        set_exit_flag();
+        shutdown(client_socket_fd, SHUT_RDWR);
     }
     
 
@@ -121,53 +125,64 @@ void *send_thread(void *arg)
 
     while (1)
     {
+        if (should_exit())
+            break;
+
         fflush(stdout);
         memset(message, 0, DEFAULT_BUFLEN);
 
-        fgets(message, DEFAULT_BUFLEN, stdin);
-
-        switch (parse_command(message))
+        if (!fgets(message, DEFAULT_BUFLEN, stdin))
         {
-            case CMD_EXIT_TYPE:
-                printf("Disconnecting...\n");
-                set_exit_flag();
+            set_exit_flag();
+            shutdown(client_socket_fd, SHUT_RDWR);
+            break;
+        }
+
+        if(!should_exit())
+        {
+            switch (parse_command(message))
+            {
+                case CMD_EXIT_TYPE:
+                    printf("Disconnecting...\n");
+                    set_exit_flag();
+                    
+                    // Pause for 2 seconds before shutting down, so the user sees "Disconnecting..."
+                    sleep(2); 
+                    shutdown(client_socket_fd, SHUT_RDWR);
+                    printf("Disconnected.\n");
+
+                    if(client_socket_fd != -1) {
+                        close(client_socket_fd);
+                        return NULL;
+                    }
+
+                    break;
+
+                case CMD_SUBSCRIBE_TYPE:
+                    if (send(client_socket_fd, message, strlen(message), 0) < 0) 
+                        perror("subscription failed");
+                    break;
                 
-                // Pause for 2 seconds before shutting down, so the user sees "Disconnecting..."
-                sleep(2); 
-                shutdown(client_socket_fd, SHUT_RDWR);
-                printf("Disconnected.\n");
+                case CMD_UNSUBSCRIBE_TYPE:
+                    if (send(client_socket_fd, message, strlen(message), 0) < 0) 
+                        perror("unsubscription failed");
+                    break;
+                
+                case CMD_LIST_TOPICS_TYPE:
+                    if (send(client_socket_fd, message, strlen(message), 0) < 0)
+                        perror("topic list request failed");
+                    break;
 
-                if(client_socket_fd != -1) {
-                    close(client_socket_fd);
-                    return NULL;
-                }
-
-                break;
-
-            case CMD_SUBSCRIBE_TYPE:
-                if (send(client_socket_fd, message, strlen(message), 0) < 0) 
-                    perror("subscription failed");
-                break;
-            
-            case CMD_UNSUBSCRIBE_TYPE:
-                if (send(client_socket_fd, message, strlen(message), 0) < 0) 
-                    perror("unsubscription failed");
-                break;
-            
-            case CMD_LIST_TOPICS_TYPE:
-                if (send(client_socket_fd, message, strlen(message), 0) < 0)
-                    perror("topic list request failed");
-                break;
-
-            case CMD_INVALID:
-            default:
-                printf("ERROR: Invalid command.\n");
-                printf("Allowed commands:\n");
-                printf("  %s\n", CMD_EXIT);
-                printf("  %s\"topic1\" \"topic2\" ...\n", CMD_SUBSCRIBE);
-                printf("  %s\"topic1\" \"topic2\" ...\n", CMD_UNSUBSCRIBE);
-                printf("  %s\n", CMD_LIST_TOPICS);
-                break;
+                case CMD_INVALID:
+                default:
+                    printf("ERROR: Invalid command.\n");
+                    printf("Allowed commands:\n");
+                    printf("  %s\n", CMD_EXIT);
+                    printf("  %s\"topic1\" \"topic2\" ...\n", CMD_SUBSCRIBE);
+                    printf("  %s\"topic1\" \"topic2\" ...\n", CMD_UNSUBSCRIBE);
+                    printf("  %s\n", CMD_LIST_TOPICS);
+                    break;
+            }
         }
     }
 
@@ -216,7 +231,6 @@ int main(int argc, char *argv[])
             close(client_socket_fd);
         return EXIT_FAILURE;
     }
-
     printf("Connected to server [%s:%d]\n", server_ip, server_port);
     printf("Commands:\n");
     printf("  %s - disconnect from server and unsubscribe from all topics\n", CMD_EXIT);

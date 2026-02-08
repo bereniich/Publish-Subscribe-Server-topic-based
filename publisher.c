@@ -5,6 +5,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
+#include <errno.h>
 
 #define IP_ADDRESS "127.0.0.1"
 #define PORT 12345
@@ -12,6 +14,42 @@
 
 // Command types
 #define CMD_EXIT        "/exit\n"
+
+static volatile sig_atomic_t server_disconnected = 0;
+
+void *monitor_server_disconnect(void *arg)
+{
+    int sock = *(int *)arg;
+    char buf[DEFAULT_BUFLEN];
+
+    while (!server_disconnected)
+    {
+        int n = recv(sock, buf, sizeof(buf), 0);
+        if (n == 0)
+        {
+            server_disconnected = 1;
+            fprintf(stderr, "Server disconnected. Press enter to exit.\n");
+            fflush(stderr);
+            shutdown(sock, SHUT_RDWR);
+            close(sock);
+            exit(EXIT_FAILURE);
+        }
+        if (n < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            server_disconnected = 1;
+            fprintf(stderr, "Server disconnected. Press enter to exit.\n");
+            fflush(stderr);
+            shutdown(sock, SHUT_RDWR);
+            close(sock);
+            exit(EXIT_FAILURE);
+        }
+        // Publisher doesn't expect data; discard anything unexpected.
+    }
+
+    return NULL;
+}
 
 /*
 Expected message format:
@@ -61,6 +99,8 @@ int valid_message_format(const char *msg)
 
 int main(int argc, char *argv[])
 {
+    signal(SIGPIPE, SIG_IGN);
+
     if(argc != 3)
     {
         fprintf(stderr, "Correct usage: %s <server_ip> <server_port>\n", argv[0]);
@@ -115,12 +155,27 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    pthread_t monitor_tid;
+    if (pthread_create(&monitor_tid, NULL, monitor_server_disconnect, &client_socket_fd) != 0)
+    {
+        perror("failed to start disconnect monitor");
+        if(client_socket_fd != -1)
+            close(client_socket_fd);
+        return EXIT_FAILURE;
+    }
+    pthread_detach(monitor_tid);
+
     while (1)
     {
         fflush(stdout);
         memset(message, '\0', DEFAULT_BUFLEN);
 
         fgets(message, DEFAULT_BUFLEN, stdin);
+
+        if (server_disconnected)
+        {
+            break;
+        }
 
         if(strcmp(message, CMD_EXIT) == 0)
         {
@@ -143,6 +198,12 @@ int main(int argc, char *argv[])
         {
             if(send(client_socket_fd, message, strlen(message), 0) < 0) 
             {
+                if (errno == EPIPE || errno == ECONNRESET)
+                {
+                    fprintf(stderr, "Server disconnected. Publisher will exit.\n");
+                    close(client_socket_fd);
+                    break;
+                }
                 perror("failed to send publish message");   
                 close(client_socket_fd);
                 exit(EXIT_FAILURE);
