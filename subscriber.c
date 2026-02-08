@@ -155,8 +155,8 @@ void *send_thread(void *arg)
                 printf("ERROR: Invalid command.\n");
                 printf("Allowed commands:\n");
                 printf("  %s", CMD_EXIT);
-                printf("  %stopic1 topic2 ...\n", CMD_SUBSCRIBE);
-                printf("  %stopic1 topic2 ...\n", CMD_UNSUBSCRIBE);
+                printf("  %s\"topic1\" \"topic2\" ...\n", CMD_SUBSCRIBE);
+                printf("  %s\"topic1\" \"topic2\" ...\n", CMD_UNSUBSCRIBE);
                 printf("  %s\n", CMD_LIST_TOPICS);
                 break;
         }
@@ -211,8 +211,8 @@ int main(int argc, char *argv[])
     printf("Connected to server [%s:%d]\n", server_ip, server_port);
     printf("Commands:\n");
     printf("  %s - disconnect from server and unsubscribe from all topics\n", CMD_EXIT);
-    printf("  %stopic1 topic2 ... - subscribe to topics\n", CMD_SUBSCRIBE);
-    printf("  %stopic1 topic2 ... - unsubscribe from topics\n", CMD_UNSUBSCRIBE);
+    printf("  %s\"topic1\" \"topic2\" ... - subscribe to topics\n", CMD_SUBSCRIBE);
+    printf("  %s\"topic1\" \"topic2\" ... - unsubscribe from topics\n", CMD_UNSUBSCRIBE);
     printf("  %s - list all current topics\n\n", CMD_LIST_TOPICS);
 
     // Send a message to the server to indicate whether this client is a publisher or subscriber

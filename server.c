@@ -57,6 +57,24 @@ server_cmd_t parse_server_command(char *msg, char **topics_start)
     return CMD_NONE;
 }
 
+static const char *next_quoted_topic(const char *p, char *out, size_t out_size)
+{
+    if (!p || !out || out_size == 0) return NULL;
+
+    const char *start = strchr(p, '"');
+    if (!start) return NULL;
+
+    const char *end = strchr(start + 1, '"');
+    if (!end) return NULL;
+
+    size_t len = (size_t)(end - (start + 1));
+    if (len >= out_size) len = out_size - 1;
+    memcpy(out, start + 1, len);
+    out[len] = '\0';
+
+    return end + 1;
+}
+
 // Send news to all subscribers of specific topic 
 void send_to_subscribers(TOPIC* topic, const char* msg, int sender_socket)
 {
@@ -88,7 +106,7 @@ void send_topics_to_subscribers(int socket)
             t = t->nextTopic;
         }
         
-        strncat(topic_list, "Use /subscribe topic1 topic2 to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
+        strncat(topic_list, "Use /subscribe \"topic1\" \"topic2\" to subscribe.\n", DEFAULT_BUFLEN - strlen(topic_list) - 1);
         send(socket, topic_list, strlen(topic_list), 0);
     }
     pthread_mutex_unlock(&topicRegistry_mtx);
@@ -157,22 +175,30 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
     if (topics_str == NULL || strlen(topics_str) == 0)
     {
         char msg[DEFAULT_BUFLEN];
-        snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified.\n");
+        if (cmd == CMD_UNSUBSCRIBE)
+            snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified. Use /unsubscribe \"topic1\" \"topic2\".\n");
+        else
+            snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified. Use /subscribe \"topic1\" \"topic2\".\n");
         send(socket, msg, strlen(msg), 0);
         return;
     }
 
-    char *topicName = strtok(topics_str, " \n");
-    if (topicName == NULL)
-    {
-        char msg[DEFAULT_BUFLEN];
-        snprintf(msg, DEFAULT_BUFLEN, "[INFO] Error: Topic name cannot be empty.\n");
-        send(socket, msg, strlen(msg), 0);
-        return;
-    }
+    int found_any = 0;
+    const char *p = topics_str;
+    char topicName[DEFAULT_BUFLEN];
 
-    while (topicName)
+    while ((p = next_quoted_topic(p, topicName, sizeof(topicName))) != NULL)
     {
+        found_any = 1;
+
+        if (topicName[0] == '\0')
+        {
+            char msg[DEFAULT_BUFLEN];
+            snprintf(msg, DEFAULT_BUFLEN, "[INFO] Error: Topic name cannot be empty.\n");
+            send(socket, msg, strlen(msg), 0);
+            continue;
+        }
+
         switch (cmd)
         {
             case CMD_SUBSCRIBE:
@@ -225,7 +251,27 @@ void subscriberCommand(char *topics_str, server_cmd_t cmd, int socket)
                 break;
 
         }
-        topicName = strtok(NULL, " \n");
+    }
+
+    if (!found_any)
+    {
+        char msg[DEFAULT_BUFLEN];
+        if (strchr(topics_str, '"') != NULL)
+        {
+            if (cmd == CMD_UNSUBSCRIBE)
+                snprintf(msg, DEFAULT_BUFLEN, "[INFO] Error: invalid format. Use /unsubscribe \"topic1\" \"topic2\".\n");
+            else
+                snprintf(msg, DEFAULT_BUFLEN, "[INFO] Error: invalid format. Use /subscribe \"topic1\" \"topic2\".\n");
+        }
+        else
+        {
+            if (cmd == CMD_UNSUBSCRIBE)
+                snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified. Use /unsubscribe \"topic1\" \"topic2\".\n");
+            else
+                snprintf(msg, DEFAULT_BUFLEN, "[INFO] No topics specified. Use /subscribe \"topic1\" \"topic2\".\n");
+        }
+        send(socket, msg, strlen(msg), 0);
+        return;
     }
 
     printTopicsAndSubscribers(&topicRegistry);
@@ -253,6 +299,14 @@ void *handle_subscriber(void *arg)
         buffer[read_size] = '\0';
 
         server_cmd_t cmd = parse_server_command(buffer, &topics_start);
+        if (cmd == CMD_NONE)
+        {
+            char msg[DEFAULT_BUFLEN];
+            snprintf(msg, DEFAULT_BUFLEN, "[INFO] Unknown command. Use /subscribe \"topic1\" \"topic2\", /unsubscribe \"topic1\" \"topic2\", or /topics.\n");
+            send(sock, msg, strlen(msg), 0);
+            memset(&buffer, '\0', DEFAULT_BUFLEN);
+            continue;
+        }
         subscriberCommand(topics_start, cmd, sock);
         memset(&buffer, '\0', DEFAULT_BUFLEN);
     }

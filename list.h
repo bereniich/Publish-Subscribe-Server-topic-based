@@ -14,8 +14,8 @@ typedef struct subscriberHead_st {
 } SUBSCRIBER_HEAD;
 
 void initSubscriber(SUBSCRIBER_HEAD *head);
-SUBSCRIBER* createSubsciber(int socket);
-void addSubsciber(SUBSCRIBER_HEAD* head, SUBSCRIBER* newSubscriber);
+SUBSCRIBER* createSubscriber(int socket);
+void addSubscriber(SUBSCRIBER_HEAD* head, SUBSCRIBER* newSubscriber);
 void destroySubscribers(SUBSCRIBER_HEAD* head);
 
 // Topic
