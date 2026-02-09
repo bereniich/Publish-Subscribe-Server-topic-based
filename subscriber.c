@@ -98,7 +98,7 @@ void *recv_thread(void *arg)
     {
         pthread_mutex_lock(&exit_mutex);
         if(!exit_flag) {
-            printf("\nServer disconnected. Press enter to exit.\n");
+            printf("\nServer disconnected. Press Enter to exit, any other input will be ignored.\n");
         }
         pthread_mutex_unlock(&exit_mutex);
         set_exit_flag();

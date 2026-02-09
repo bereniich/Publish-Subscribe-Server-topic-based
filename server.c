@@ -100,7 +100,7 @@ void send_topics_to_subscribers(int socket)
 
         if (t == NULL) // Empty registry
         {
-            snprintf(line, DEFAULT_BUFLEN, "Currently no available topics\n");
+            snprintf(line, DEFAULT_BUFLEN, "No topics available yet.\n");
             send(socket, line, strlen(line), 0);
         }
         else
@@ -346,6 +346,12 @@ int main(void)
     {
         perror("socket failed");
         return 1;
+    }
+
+    int optval = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0)
+    {
+        perror("setsockopt SO_REUSEADDR failed");
     }
 
     server_addr.sin_family = AF_INET;

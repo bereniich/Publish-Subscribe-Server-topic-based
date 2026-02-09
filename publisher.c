@@ -28,7 +28,7 @@ void *monitor_server_disconnect(void *arg)
         if (n == 0)
         {
             server_disconnected = 1;
-            fprintf(stderr, "Server disconnected. Press enter to exit.\n");
+            fprintf(stderr, "Server disconnected. Press Enter to exit, any other input will be ignored.\n");
             fflush(stderr);
             shutdown(sock, SHUT_RDWR);
             close(sock);
@@ -39,7 +39,7 @@ void *monitor_server_disconnect(void *arg)
             if (errno == EINTR)
                 continue;
             server_disconnected = 1;
-            fprintf(stderr, "Server disconnected. Press enter to exit.\n");
+            fprintf(stderr, "Server disconnected. Press Enter to exit, any other input will be ignored.\n");
             fflush(stderr);
             shutdown(sock, SHUT_RDWR);
             close(sock);
