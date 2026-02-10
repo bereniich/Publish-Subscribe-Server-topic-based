@@ -80,13 +80,7 @@ void *recv_thread(void *arg)
     char buffer[DEFAULT_BUFLEN];
     int read_size;
 
-    /* Expected message formats include:
-        [SERVER] Subscription failed.
-        [SERVER] Unsubscription failed.
-        [TOPIC_NAME] News
-    */
-
-    while (!should_exit() && (read_size = recv(client_socket_fd, buffer, DEFAULT_BUFLEN - 1, 0)) > 0)
+    while (!should_exit() && ((read_size = recv(client_socket_fd, buffer, DEFAULT_BUFLEN - 1, 0)) > 0))
     {
         buffer[read_size] = '\0';
         fputs(buffer, stdout);
@@ -96,11 +90,9 @@ void *recv_thread(void *arg)
 
     if(read_size == 0) 
     {
-        pthread_mutex_lock(&exit_mutex);
-        if(!exit_flag) {
+        if(!should_exit()) {
             printf("\nServer disconnected. Press Enter to exit, any other input will be ignored.\n");
         }
-        pthread_mutex_unlock(&exit_mutex);
         set_exit_flag();
         shutdown(client_socket_fd, SHUT_RDWR);
     } 

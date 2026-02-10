@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define IP_ADDRESS "127.0.0.1"
 #define PORT 12345
@@ -15,37 +16,39 @@
 // Command types
 #define CMD_EXIT        "/exit\n"
 
-static volatile sig_atomic_t server_disconnected = 0;
+bool server_disconnected = false;
+pthread_mutex_t server_disconnected_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void set_exit_flag(void)
+{
+    pthread_mutex_lock(&server_disconnected_mutex);
+    server_disconnected = true;
+    pthread_mutex_unlock(&server_disconnected_mutex);
+}
+
+bool should_exit(void)
+{
+    bool val;
+    pthread_mutex_lock(&server_disconnected_mutex);
+    val = server_disconnected;
+    pthread_mutex_unlock(&server_disconnected_mutex);
+    return val;
+}
 
 void *monitor_server_disconnect(void *arg)
 {
     int sock = *(int *)arg;
     char buf[DEFAULT_BUFLEN];
 
-    while (!server_disconnected)
+    while (!should_exit())
     {
         int n = recv(sock, buf, sizeof(buf), 0);
-        if (n == 0)
+        if (n <= 0)
         {
-            server_disconnected = 1;
+            set_exit_flag();
             fprintf(stderr, "Server disconnected. Press Enter to exit, any other input will be ignored.\n");
             fflush(stderr);
-            shutdown(sock, SHUT_RDWR);
-            close(sock);
-            exit(EXIT_FAILURE);
         }
-        if (n < 0)
-        {
-            if (errno == EINTR)
-                continue;
-            server_disconnected = 1;
-            fprintf(stderr, "Server disconnected. Press Enter to exit, any other input will be ignored.\n");
-            fflush(stderr);
-            shutdown(sock, SHUT_RDWR);
-            close(sock);
-            exit(EXIT_FAILURE);
-        }
-        // Publisher doesn't expect data; discard anything unexpected.
     }
 
     return NULL;
@@ -99,7 +102,6 @@ int valid_message_format(const char *msg)
 
 int main(int argc, char *argv[])
 {
-    signal(SIGPIPE, SIG_IGN);
 
     if(argc != 3)
     {
@@ -172,7 +174,7 @@ int main(int argc, char *argv[])
 
         fgets(message, DEFAULT_BUFLEN, stdin);
 
-        if (server_disconnected)
+        if (should_exit())
         {
             break;
         }
