@@ -1,6 +1,6 @@
 # Publish–Subscribe Chat System (C, TCP, pthreads)
 
-This project implements a **TCP-based publish–subscribe messaging system** written in C.
+This project implements a **TCP-based publish–subscribe messaging system** written in C.  
 It consists of a **server**, **publishers**, and **subscribers**, allowing publishers to publish news to topics and subscribers to receive messages for topics they are subscribed to.
 
 ---
@@ -16,6 +16,9 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 * Separate publisher and subscriber clients
 * Graceful client disconnect support
 * Server IP and port configurable via command-line arguments
+* Graceful server shutdown with **Ctrl+C**
+* Publisher monitors server connection using a dedicated thread
+* Automatic build and demo run using **Makefile**
 
 ---
 
@@ -27,12 +30,32 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 * Distinguishes clients as **PUBLISHER** or **SUBSCRIBER**
 * Maintains a global **topic registry**
 * Forwards published messages to all subscribers of a topic
+* Can be terminated gracefully using **Ctrl+C**
+
+---
 
 ### Publisher Client
 
 * Publishes messages to topics
 * Automatically creates a topic if it does not exist
 * Connects to the server using command-line provided IP and port
+* Uses a **separate monitoring thread** to detect server disconnection
+
+The connection state is tracked using a shared flag:
+
+```c
+bool server_disconnected = false;
+pthread_mutex_t server_disconnected_mutex = PTHREAD_MUTEX_INITIALIZER;
+```
+
+The monitoring thread:
+
+* listens for socket/connection errors
+* sets `server_disconnected = true` when the server disconnects
+* safely synchronizes access using the mutex
+* allows the main thread to terminate gracefully without blocking
+
+---
 
 ### Subscriber Client
 
@@ -45,16 +68,15 @@ It consists of a **server**, **publishers**, and **subscribers**, allowing publi
 ## Project Structure
 
 ```
-
 .
 ├── server.c          # Chat server
 ├── publisher.c       # Publisher client
 ├── subscriber.c      # Subscriber client
 ├── list.c            # Topic & subscriber linked-list logic
 ├── list.h            # Data structures and function declarations
+├── Makefile
 └── README.md
-
-````
+```
 
 ---
 
@@ -68,7 +90,7 @@ typedef struct topic {
     SUBSCRIBER *subscribers;
     struct topic *nextTopic;
 } TOPIC;
-````
+```
 
 ### Subscriber
 
@@ -94,7 +116,7 @@ gcc server.c list.c -o server -pthread
 ### Publisher
 
 ```bash
-gcc publisher.c -o publisher
+gcc publisher.c -o publisher -pthread
 ```
 
 ### Subscriber
@@ -105,9 +127,9 @@ gcc subscriber.c -o subscriber -pthread
 
 ---
 
-## Running the Application
+# Running the Application
 
-### 1. Start the Server
+## 1. Start the Server
 
 ```bash
 ./server
@@ -121,7 +143,7 @@ Server listens on:
 
 ---
 
-### 2. Start a Subscriber
+## 2. Start a Subscriber
 
 ```bash
 ./subscriber <server_ip> <server_port>
@@ -133,9 +155,7 @@ Example:
 ./subscriber 127.0.0.1 12345
 ```
 
-You will receive a list of available topics upon connection.
-
-#### Subscriber Commands
+### Subscriber Commands
 
 ```text
 /subscribe "topic1" "topic2"
@@ -146,7 +166,7 @@ You will receive a list of available topics upon connection.
 
 ---
 
-### 3. Start a Publisher
+## 3. Start a Publisher
 
 ```bash
 ./publisher <server_ip> <server_port>
@@ -158,7 +178,7 @@ Example:
 ./publisher 127.0.0.1 12345
 ```
 
-#### Publish Message Format
+### Publish Message Format
 
 ```text
 [topic] "message text"
@@ -172,6 +192,30 @@ Example:
 
 ---
 
+# Server Shutdown
+
+The server can be stopped at any time using:
+
+```bash
+Ctrl + C
+```
+
+When the server shuts down:
+
+* all client sockets are closed
+* subscribers and publishers detect the disconnect
+* their receive/monitor threads terminate
+
+## Important
+
+After the server exits, **subscriber and publisher clients must press ENTER once** to close.
+
+This is required because their input thread may still be waiting for keyboard input (`stdin`).
+
+Without pressing ENTER, the program may appear stuck.
+
+---
+
 ## Message Flow
 
 1. Publisher sends:
@@ -179,11 +223,12 @@ Example:
    ```
    [news] "Breaking news!"
    ```
-2. Server:
 
+2. Server:
    * Extracts topic name
    * Creates topic if it does not exist
-   * Sends the message to all subscribers of `news`
+   * Broadcasts the message to all subscribers
+
 3. Subscribers receive:
 
    ```
@@ -191,35 +236,106 @@ Example:
    ```
 
 ---
+
 ## Concurrency & Synchronization
 
-* The **topic registry** is protected using:
+### Server
+
+The **topic registry** is protected using:
 
 ```c
 pthread_mutex_t topicRegistry_mtx;
-````
+```
 
-* Prevents race conditions during:
+Prevents race conditions during:
 
-  * Topic creation
-  * Subscription changes
-  * Message broadcasting
+* Topic creation
+* Subscription changes
+* Message broadcasting
 
-* The **subscriber client shutdown** is synchronized using a thread-safe exit flag:
+---
+
+### Subscriber
+
+Client shutdown is synchronized using:
 
 ```c
 bool exit_flag;
 pthread_mutex_t exit_mutex;
 ```
 
-* Ensures coordinated and graceful termination of send/receive threads during `/exit` or server disconnect.
+Ensures coordinated and graceful termination of threads.
+
+---
+
+### Publisher
+
+Server connection monitoring:
+
+```c
+bool server_disconnected = false;
+pthread_mutex_t server_disconnected_mutex = PTHREAD_MUTEX_INITIALIZER;
+```
+
+Used by a dedicated thread to safely notify the main thread about connection loss.
+
+---
+
+# Makefile Usage
+
+A **Makefile** is provided to simplify building and testing.
+
+## Build everything
+
+```bash
+make
+```
+
+Compiles:
+
+* server
+* publisher
+* subscriber
+
+---
+
+## Run demo automatically
+
+```bash
+make run
+```
+
+This automatically starts:
+
+* 1 server
+* 2 subscribers
+* 2 publishers
+
+Each runs in its own terminal window.
+
+Useful for quickly testing:
+
+* concurrent clients
+* subscriptions
+* live message broadcasting
+
+---
+
+## Clean binaries
+
+```bash
+make clean
+```
+
+Removes compiled executables.
+
 ---
 
 ## Error Handling
 
 * Invalid message formats are rejected
 * Duplicate subscriptions are ignored
-* Invalid command-line arguments terminate the client
+* Invalid arguments terminate the client
 * Memory allocation failures are checked
 * Socket errors are reported using `perror`
 
@@ -227,18 +343,12 @@ pthread_mutex_t exit_mutex;
 
 ## Cleanup
 
-* Subscriber removal from all topics on disconnect
-* Proper memory deallocation for:
-
-  * Topics
-  * Subscribers
-  * Client structures
+* Subscribers are removed from all topics on disconnect
+* All allocated memory is properly freed
 
 ---
 
 ## License
 
-This project is intended for **educational purposes**.
+This project is intended for **educational purposes**.  
 You are free to modify and extend it.
-
-
